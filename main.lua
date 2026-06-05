@@ -1,11 +1,11 @@
--- [[ YOHUB PREMIUM SEMI-AFK (NO AUTO CLAIM) ]] --
+-- [[ YOHUB PREMIUM - PURE MARKET BOOTH STOCKER ]] --
 
 -- =========================================================================
 --  PENGATURAN CONFIG
 -- =========================================================================
-local NAMA_ITEM      = "Bone Blossom" -- Nama buah yang mau dijual otomatis
-local HARGA_JUAL     = "11"          -- Harga (Wajib pakai tanda kutip untuk input teks)
-local MENIT_AUTOHOP  = 20             -- Otomatis pindah server tiap X menit
+local NAMA_ITEM      = "Bone Blossom" 
+local HARGA_JUAL     = "11"          
+local MENIT_AUTOHOP  = 20             
 
 -- =========================================================================
 --  LOGIKA UTAMA GAME
@@ -30,67 +30,61 @@ local function klikTombol(objek)
     return false
 end
 
--- [[ SYSTEM: PURE AUTOMATIC STOCKING VIA UI ]] --
+-- [[ SYSTEM: PURE AUTOMATIC STOCKING VIA UI MARKET ONLY ]] --
 local function eksekusiAutoStockJeroanUI()
     pcall(function()
         local PlayerGui = localPlayer:WaitForChild("PlayerGui")
         
-        -- 1. OTOMATIS BUKA/KLIK MENU EDIT BOOTH JIKA BELUM TERBUKA
+        -- Kita cari ScreenGui yang beneran punya unsur nama "Booth", "Trade", "Market", atau "Shop"
+        -- Ini biar gak nyasar ke UI Kebun / UI NPC Steven lagi!
         for _, gui in ipairs(PlayerGui:GetChildren()) do
-            if gui:IsA("ScreenGui") and gui.Enabled then
+            local namaGui = string.lower(gui.Name)
+            if gui:IsA("ScreenGui") and gui.Enabled and (string.find(namaGui, "booth") or string.find(namaGui, "trade") or string.find(namaGui, "market") or string.find(namaGui, "shop") or string.find(namaGui, "main")) then
+                
+                -- 1. OTOMATIS BUKA MENU EDIT BOOTH (Jika belum kebuka)
                 for _, btn in ipairs(gui:GetDescendants()) do
-                    if btn:IsA("TextButton") and (string.find(string.lower(btn.Name), "edit") or string.find(string.lower(btn.Text), "edit")) then
+                    if btn:IsA("TextButton") and (string.find(string.lower(btn.Name), "edit") or string.find(string.lower(btn.Text), "edit booth")) then
                         klikTombol(btn)
                     end
                 end
-            end
-        end
-        
-        task.wait(1) -- Tunggu UI terbuka
-        
-        -- 2. CARI BUAH DI DAFTAR UI INVENTORY
-        for _, gui in ipairs(PlayerGui:GetChildren()) do
-            if gui:IsA("ScreenGui") and gui.Enabled then
+                
+                task.wait(0.8) -- Jeda bentar biar UI-nya kebuka sempurna
+                
+                -- 2. CARI BUAH BONE BLOSSOM DI DALAM TEMPLATE INVENTORY BOOTH
                 for _, itemUI in ipairs(gui:GetDescendants()) do
                     if (itemUI:IsA("TextLabel") or itemUI:IsA("TextButton")) and string.find(string.lower(itemUI.Text), string.lower(NAMA_ITEM)) then
                         local tombolPilih = itemUI:IsA("TextButton") and itemUI or itemUI:FindFirstAncestorOfClass("TextButton") or itemUI.Parent
                         if tombolPilih and tombolPilih:IsA("GuiButton") then
-                            klikTombol(tombolPilih) -- Pilih Bone Blossom otomatis
+                            klikTombol(tombolPilih) -- Klik/Pilih buahnya
                         end
                     end
                 end
-            end
-        end
-        
-        task.wait(0.5)
-        
-        -- 3. OTOMATIS INPUT HARGA JUAL
-        for _, gui in ipairs(PlayerGui:GetChildren()) do
-            if gui:IsA("ScreenGui") and gui.Enabled then
+                
+                task.wait(0.4)
+                
+                -- 3. INPUT ANGKA HARGA JUAL PADA BOX YANG COCOK
                 for _, box in ipairs(gui:GetDescendants()) do
-                    if box:IsA("TextBox") then
-                        box.Text = HARGA_JUAL -- Masukin angka 500
+                    if box:IsA("TextBox") and box.Visible then
+                        box.Text = HARGA_JUAL -- Masukin harga 500
                         box:ReleaseFocus(true) -- Tekan Enter otomatis
                     end
                 end
-            end
-        end
-        
-        task.wait(0.5)
-        
-        -- 4. OTOMATIS KLIK TOMBOL CONFIRM
-        for _, gui in ipairs(PlayerGui:GetChildren()) do
-            if gui:IsA("ScreenGui") and gui.Enabled then
+                
+                task.wait(0.4)
+                
+                -- 4. KLIK CONFIRM / STOCK DI MENU BOOTH
                 for _, btn in ipairs(gui:GetDescendants()) do
                     if btn:IsA("TextButton") or btn:IsA("ImageButton") then
                         local n = string.lower(btn.Name)
                         local t = btn:IsA("TextButton") and string.lower(btn.Text) or ""
                         
-                        if string.find(n, "sell") or string.find(t, "jual") or string.find(n, "confirm") or string.find(t, "confirm") then
-                            klikTombol(btn) -- Confirm otomatis!
+                        -- Kita saring ketat, tombol confirm harus di dalam UI booth, bukan UI Steven
+                        if string.find(n, "confirm") or string.find(t, "confirm") or string.find(n, "stock") or string.find(t, "stock") then
+                            klikTombol(btn)
                         end
                     end
                 end
+                
             end
         end
     end)
@@ -98,9 +92,9 @@ end
 
 -- [[ SYSTEM: AUTO HOP SERVER ]] --
 local function jalankanAutoHopServer()
-   print("YoHub: Pindah server market...")
+   print("[YoHub]: Waktu habis, mencari server market baru...")
    local placeId = game.PlaceId
-   local url = "https://games.roblem.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
+   local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
    
    local success, result = pcall(function()
        return HttpService:JSONDecode(game:HttpGet(url))
@@ -133,14 +127,14 @@ end
 -- [[ RUNNING ENGINE ]] --
 task.spawn(function()
    print("=========================================")
-   print("    YOHUB AUTO RESTOCK UI (NO CLAIM)     ")
+   print("    YOHUB AUTO RESTOCK MARKET ONLY       ")
    print("=========================================")
-   print("Cara Pakai: KLAIM BOOTH MANUAL TERLEBIH DAHULU")
+   print("[INFO]: Script aktif. Silakan Klaim Booth!")
    print("=========================================")
    
    while true do
        eksekusiAutoStockJeroanUI()
-       task.wait(30) -- Cek dan isi ulang stok tiap 10 detik sekali jika abis
+       task.wait(8) -- Nge-cek slot kosong tiap 8 detik
    end
 end)
 
