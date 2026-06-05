@@ -1,14 +1,14 @@
--- [[ YOHUB PREMIUM GAIB - GROW A GARDEN SPECIAL EDITION ]] --
+-- [[ YOHUB PREMIUM GAIB - FIX AUTO CLAIM BOOTH ]] --
 
 -- =========================================================================
---  PENGATURAN CONFIG (Ubah di sini sebelum lu execute!)
+--  PENGATURAN CONFIG
 -- =========================================================================
-local NAMA_ITEM      = "Bone Blossom" -- Nama item hasil scan lu
-local HARGA_JUAL     = 11           -- Atur harga jual yang lu mau
-local MENIT_AUTOHOP  = 20             -- Otomatis pindah server tiap X menit
+local NAMA_ITEM      = "Bone Blossom" 
+local HARGA_JUAL     = 11          
+local MENIT_AUTOHOP  = 20             
 
 -- =========================================================================
---  LOGIKA UTAMA GAME (ANTI BUG UI DELTA)
+--  LOGIKA UTAMA GAME
 -- =========================================================================
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
@@ -20,30 +20,60 @@ local WAKTU_HOP_DETIK = MENIT_AUTOHOP * 60
 shared.VisitedServers = shared.VisitedServers or {}
 table.insert(shared.VisitedServers, game.JobId)
 
--- [[ FUNGSI AUTO CLAIM BOOTH & AUTO STOCK ]] --
+-- [[ FUNGSI CARI DAN CLAIM BOOTH KOSONG ]] --
+local function autoClaimBoothKosong()
+    -- Cari folder penampung booth berdasarkan log scan lu kemarin (Workspace.Booths atau Workspace.TradeWorld.Booths)
+    local folderBooths = workspace:FindFirstChild("Booths") or (workspace:FindFirstChild("TradeWorld") and workspace.TradeWorld:FindFirstChild("Booths"))
+    
+    if not folderBooths then
+        warn("YoHub: Folder Booths tidak ditemukan di Workspace!")
+        return nil
+    end
+
+    -- Scan semua booth di dalam folder
+    for _, booth in ipairs(folderBooths:GetChildren()) do
+        -- Cek apakah booth ini kosong (biasanya di game Roblox ditandai tidak ada nama pemilik/Owner Value-nya kosong atau nil)
+        local ownerValue = booth:FindFirstChild("Owner") or booth:FindFirstChild("Player")
+        
+        -- Kalau booth gak ada owner-nya, berarti ini BOOTH KOSONG!
+        if not ownerValue or ownerValue.Value == "" or ownerValue.Value == nil then
+            print("YoHub: Menemukan Booth Kosong -> " .. booth.Name)
+            
+            -- Tembak Remote Claim dengan menyertakan objek Booth yang kosong tadi
+            pcall(function()
+                ReplicatedStorage.GameEvents.TradeEvents.Booths.ClaimBooth:FireServer(booth)
+            end)
+            
+            return booth -- Keluar dari fungsi karena udah dapet booth
+        end
+    end
+    
+    -- Jikalau tidak ketemu booth kosong (semua penuh), coba paksa claim default aja
+    pcall(function()
+        ReplicatedStorage.GameEvents.TradeEvents.Booths.ClaimBooth:FireServer()
+    end)
+end
+
+-- [[ FUNGSI AUTO STOCK ]] --
 local function jalankanSistemBooth()
     task.spawn(function()
         while true do
+            -- 1. Eksekusi cari dan claim booth otomatis
+            autoClaimBoothKosong()
+            task.wait(2)
+            
+            -- 2. Tembak stok barang jualan ke booth
             pcall(function()
-                -- 1. OTOMATIS CLAIM BOOTH KOSONG
-                -- Kita panggil Remote ClaimBooth hasil scan pertama lu
-                ReplicatedStorage.GameEvents.TradeEvents.Booths.ClaimBooth:FireServer()
-                
-                -- Beri jeda 2 detik setelah claim biar server gak lag
-                task.wait(2)
-                
-                -- 2. OTOMATIS TEMBAK STOK BONE BLOSSOM
-                -- Kita kirim beberapa variasi argumen remote biar server game terpaksa menerima datanya
                 ReplicatedStorage.GameEvents.UpdateStock:FireServer(NAMA_ITEM, HARGA_JUAL, 1, 1)
                 ReplicatedStorage.GameEvents.UpdateStock:FireServer(NAMA_ITEM, HARGA_JUAL)
             end)
             
-            task.wait(10) -- Proses auto-claim dan re-stock berjalan otomatis tiap 10 detik sekali
+            task.wait(10) -- Ulangi pengecekan setiap 10 detik
         end
     end)
 end
 
--- [[ FUNGSI AUTO HOP MOBILITAS SERVER ]] --
+-- [[ FUNGSI AUTO HOP ]] --
 local function jalankanAutoHopServer()
    print("YoHub: Mencari server baru...")
    local placeId = game.PlaceId
@@ -71,7 +101,6 @@ local function jalankanAutoHopServer()
            task.wait(1)
            TeleportService:TeleportToPlaceInstance(placeId, randomServerId, localPlayer)
        else
-           print("YoHub: Mengulang scan server...")
            shared.VisitedServers = {game.JobId}
            task.wait(5)
            jalankanAutoHopServer()
@@ -79,20 +108,17 @@ local function jalankanAutoHopServer()
    end
 end
 
--- [[ EKSEKUSI UTAMA ]] --
+-- [[ EKSEKUSI ]] --
 task.spawn(function()
    print("=========================================")
-   print("     YOHUB PREMIUM GAIB TELAH AKTIF      ")
+   print("   YOHUB PREMIUM GAIB V2 (FIX CLAIM)     ")
    print("=========================================")
    print("Target Item : " .. NAMA_ITEM)
    print("Harga Jual  : " .. tostring(HARGA_JUAL))
-   print("Sistem      : Auto Claim + Auto Stock Active")
    print("=========================================")
    
-   -- Jalankan fungsi jualan otomatis di background
    jalankanSistemBooth()
    
-   -- Loop timer untuk pindah server market
    while true do
       task.wait(WAKTU_HOP_DETIK)
       jalankanAutoHopServer()
