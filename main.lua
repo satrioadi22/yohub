@@ -1,79 +1,71 @@
--- [[ YOHUB PURE AUTO RESTOCK - GROW A GARDEN INDONESIA ]] --
+-- [[ YOHUB AUTO CLICKER STOCK - BYPASS PHYSICS SYSTEM ]] --
 
 -- =========================================================================
---  PENGATURAN CONFIG (Ubah di sini sebelum lu execute!)
+--  PENGATURAN CONFIG
 -- =========================================================================
-local NAMA_ITEM      = "Bone Blossom" -- Nama buah/item jualan lu
-local HARGA_JUAL     = 11            -- Harga jualan lu
-local MENIT_AUTOHOP  = 20             -- Waktu nunggu sebelum pindah server (menit)
+local MENIT_AUTOHOP  = 20 -- Waktu tunggu sebelum pindah server market (menit)
 
 -- =========================================================================
---  LOGIKA UTAMA (BERDASARKAN JALUR DISKOBERI LU)
+--  LOGIKA UTAMA (BYPASS CLICK SYSTEM)
 -- =========================================================================
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local localPlayer = Players.LocalPlayer
 
 local WAKTU_HOP_DETIK = MENIT_AUTOHOP * 60
 shared.VisitedServers = shared.VisitedServers or {}
 table.insert(shared.VisitedServers, game.JobId)
 
--- Fungsi mencari booth milik lu berdasarkan jalur TextLabel papan nama
-local function cariBoothGua()
-    local folderBooths = workspace:FindFirstChild("TradeWorld") and workspace.TradeWorld:FindFirstChild("Booths")
-    if not folderBooths then return nil end
-
-    -- Scan semua ID unik booth di dalam folder Booths
-    for _, booth in ipairs(folderBooths:GetChildren()) do
-        pcall(function()
-            -- Sesuai jalur yang lu temuin: Default -> Booth -> Sign -> SurfaceGui -> TextLabel
-            local label = booth:FindFirstChild("Default") 
-                and booth.Default:FindFirstChild("Booth")
-                and booth.Default.Booth:FindFirstChild("Sign")
-                and booth.Default.Booth.Sign:FindFirstChild("SurfaceGui")
-                and booth.Default.Booth.Sign.SurfaceGui:FindFirstChild("TextLabel")
-
-            -- Jika teks di papan nama mengandung nama akun lu, berarti ini booth lu!
-            if label and string.find(string.lower(label.Text), string.lower(localPlayer.Name)) then
-                _G.BoothKetemu = booth
-            end
-        end)
-        if _G.BoothKetemu == booth then return booth end
-    end
-    return nil
-end
-
--- [[ LOOP AUTO RESTOCK MATANG ]] --
-local function jalankanAutoRestock()
-    task.spawn(function()
-        while true do
-            local boothGua = cariBoothGua()
-            
-            if boothGua then
-                pcall(function()
-                    local remote = ReplicatedStorage:FindFirstChild("GameEvents") and ReplicatedStorage.GameEvents:FindFirstChild("UpdateStock")
-                    if remote then
-                        -- Kita tembak pake ID Unik Booth lu yang dapet dari scanner
-                        remote:FireServer(boothGua, NAMA_ITEM, HARGA_JUAL)
-                        remote:FireServer(boothGua, NAMA_ITEM, HARGA_JUAL, 1)
-                        remote:FireServer(NAMA_ITEM, HARGA_JUAL, 1, 1)
+-- [[ FUNGSI AUTO CLICK TOMBOL JUAL DI SCREEN LU ]] --
+local function paksaKlikTombolJualan()
+    pcall(function()
+        -- Script akan menggeledah UI Player lu secara otomatis
+        local PlayerGui = localPlayer:WaitForChild("PlayerGui")
+        
+        -- Keliling nyari UI bertema Booth, Shop, Trade, atau Interaction
+        for _, gui in ipairs(PlayerGui:GetChildren()) do
+            if gui:IsA("ScreenGui") and gui.Enabled then
+                -- Cari tombol yang namanya mengandung unsur Jual / Confirm / Stock
+                for _, tombol in ipairs(gui:GetDescendants()) do
+                    if tombol:IsA("TextButton") or tombol:IsA("ImageButton") then
+                        local namaTombol = string.lower(tombol.Name)
+                        local teksTombol = tombol:IsA("TextButton") and string.lower(tombol.Text) or ""
+                        
+                        -- Jika mendapati tombol Confirm, Sell, Auto, atau Stock
+                        if string.find(namaTombol, "confirm") or string.find(teksTombol, "confirm") 
+                        or string.find(namaTombol, "sell") or string.find(teksTombol, "jual")
+                        or string.find(namaTombol, "stock") or string.find(teksTombol, "stock") then
+                            
+                            -- Picu fungsi klik secara paksa lewat virtual script (Bypass UI Bug Delta!)
+                            if tombol.Visible then
+                                firesignal(tombol.MouseButton1Click)
+                                firesignal(tombol.MouseButton1Down)
+                                firesignal(tombol.Activated)
+                                print("[YoHub]: Berhasil menembak Klik pada tombol: " .. tombol.Name)
+                            end
+                        end
                     end
-                end)
-                print("[YoHub]: Berhasil menyetok " .. NAMA_ITEM .. " seharga " .. tostring(HARGA_JUAL) .. " di booth lu!")
-            else
-                print("[YoHub]: Lu BELUM KLAIM BOOTH. Klaim manual dulu sampai papan nama lu muncul!")
+                end
             end
-            
-            task.wait(5) -- Mengulang auto stock setiap 5 detik sekali
         end
     end)
 end
 
--- [[ FUNGSI AUTO HOP ]] --
+-- [[ LOOPING PENGECEKAN ]] --
+local function jalankanAutoStock()
+    task.spawn(function()
+        while true do
+            -- Jalankan paksa klik tombol jualan di background setiap 3 detik sekali
+            paksaKlikTombolJualan()
+            task.wait(3)
+        end
+    end)
+end
+
+-- [[ FUNGSI AUTO HOP SERVER ]] --
 local function jalankanAutoHopServer()
-   print("YoHub: Waktu habis, pindah server...")
+   print("YoHub: Mencari server baru...")
    local placeId = game.PlaceId
    local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
    
@@ -95,6 +87,7 @@ local function jalankanAutoHopServer()
        
        if #validServers > 0 then
            local randomServerId = validServers[math.random(1, #validServers)]
+           print("YoHub: Otw Teleport ke server market baru...")
            task.wait(1)
            TeleportService:TeleportToPlaceInstance(placeId, randomServerId, localPlayer)
        else
@@ -108,14 +101,13 @@ end
 -- [[ RUNNING EXECUTOR ]] --
 task.spawn(function()
    print("=========================================")
-   print("    YOHUB AUTO RESTOCK 100% ACCURATE     ")
+   print("    YOHUB FINAL BYPASS BUTTON ACTIVE     ")
    print("=========================================")
-   print("Target Item : " .. NAMA_ITEM)
-   print("Harga Jual  : " .. tostring(HARGA_JUAL))
-   print("Wajib       : Klaim Booth Manual Dulu!")
+   print("Sistem      : Auto Clicker UI Integrator")
+   print("Status      : Bypass Bug Input Delta")
    print("=========================================")
    
-   jalankanAutoRestock()
+   jalankanAutoStock()
    
    while true do
       task.wait(WAKTU_HOP_DETIK)
