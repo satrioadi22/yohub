@@ -1,11 +1,10 @@
--- [[ YOHUB PREMIUM - SEAMLESS AUTO LISTING FIX ANTI-NPC ]] --
+-- [[ YOHUB PREMIUM - 4-STEP SCREENSHOT AUTOMATION ]] --
 
 -- =========================================================================
 --  PENGATURAN CONFIG
 -- =========================================================================
-local NAMA_ITEM      = "Bone Blossom" -- Nama buah jualan lu
-local HARGA_JUAL     = "500"          -- Harga jualan lu
-local MENIT_AUTOHOP  = 20             -- Waktu sebelum pindah server (menit)
+local NAMA_ITEM      = "Bone Blossom" -- Nama buah di foto lu
+local MENIT_AUTOHOP  = 20             -- Waktu sebelum pindah server
 
 -- =========================================================================
 --  LOGIKA UTAMA INTEGRATOR
@@ -19,112 +18,83 @@ local WAKTU_HOP_DETIK = MENIT_AUTOHOP * 60
 shared.VisitedServers = shared.VisitedServers or {}
 table.insert(shared.VisitedServers, game.JobId)
 
--- Fungsi klik virtual segala jenis tombol UI (Anti-Bug Executor)
-local function paksaKlik(tombol)
-    if tombol and tombol.Visible then
-        firesignal(tombol.MouseButton1Click)
-        firesignal(tombol.MouseButton1Down)
-        firesignal(tombol.Activated)
+-- Fungsi klik tangguh khusus executor Delta
+local function klikMulus(objek)
+    if objek and objek.Visible then
+        firesignal(objek.MouseButton1Click)
+        firesignal(objek.MouseButton1Down)
+        firesignal(objek.Activated)
         return true
     end
     return false
 end
 
--- [[ INTI ALGORITMA: AUTO LISTING MENGIKUTI ALUR GAME ]] --
-local function eksekusiAutoListingSesuaiAlur()
+-- [[ INTEGRASI 4 LANGKAH VISUAL LU ]] --
+local function eksekusiRitualAutoListing()
     pcall(function()
         local PlayerGui = localPlayer:WaitForChild("PlayerGui")
         
-        -- =================================================================
-        -- LANGKAH 1: KLIK "CREATE LISTING"
-        -- =================================================================
-        local pencetCreate = false
+        -- Kita cari core UI Pasar yang sedang aktif di layar lu
         for _, gui in ipairs(PlayerGui:GetChildren()) do
-            -- Kunci hanya ScreenGui yang aktif dan namanya berbau Booth/Market/Trade
-            if gui:IsA("ScreenGui") and gui.Enabled and not string.find(string.lower(gui.Name), "steven") and not string.find(string.lower(gui.Name), "npc") then
+            if gui:IsA("ScreenGui") and gui.Enabled and not string.find(string.lower(gui.Name), "steven") then
+                
+                -- =================================================================
+                -- FOTO 1: KLIK TOMBOL "CREATE LISTING" (Tombol Hijau Plus)
+                -- =================================================================
                 for _, obj in ipairs(gui:GetDescendants()) do
                     if obj:IsA("TextButton") or obj:IsA("ImageButton") then
-                        local txt = obj:IsA("TextButton") and string.lower(obj.Text) or ""
-                        local nm = string.lower(obj.Name)
-                        
-                        if string.find(nm, "create") or string.find(txt, "create") or string.find(nm, "listing") or string.find(txt, "listing") then
-                            if paksaKlik(obj) then
-                                pencetCreate = true
-                                break
+                        local teks = obj:IsA("TextButton") and string.lower(obj.Text) or ""
+                        if string.find(string.lower(obj.Name), "create") or string.find(teks, "create listing") then
+                            if klikMulus(obj) then 
+                                task.wait(0.6) 
+                                break 
                             end
                         end
                     end
                 end
-            end
-            if pencetCreate then break end
-        end
-        
-        if pencetCreate then task.wait(0.8) end -- Jeda agar UI Inventory terbuka
-
-        -- =================================================================
-        -- LANGKAH 2: PILIH BUAH DI MY INVENTORY
-        -- =================================================================
-        local buahTerpilih = false
-        for _, gui in ipairs(PlayerGui:GetChildren()) do
-            if gui:IsA("ScreenGui") and gui.Enabled and not string.find(string.lower(gui.Name), "steven") then
+                
+                -- =================================================================
+                -- FOTO 2: PILIH BUAH "BONE BLOSSOM" DI MY INVENTORY
+                -- =================================================================
                 for _, obj in ipairs(gui:GetDescendants()) do
-                    if (obj:IsA("TextLabel") or obj:IsA("TextButton")) and string.find(string.lower(obj.Text), string.lower(NAMA_ITEM)) then
-                        -- Cari tombol pembungkus dari tulisan buah tersebut
-                        local tombolBuah = obj:IsA("TextButton") and obj or obj:FindFirstAncestorOfClass("TextButton") or obj.Parent
-                        if tombolBuah and tombolBuah:IsA("GuiButton") then
-                            if paksaKlik(tombolBuah) then
-                                buahTerpilih = true
-                                break
+                    if (obj:IsA("TextLabel") or obj:IsA("TextButton")) and string.find(obj.Text, NAMA_ITEM) then
+                        local slotBuah = obj:IsA("TextButton") and obj or obj:FindFirstAncestorOfClass("TextButton") or obj.Parent
+                        if slotBuah and slotBuah:IsA("GuiButton") then
+                            if klikMulus(slotBuah) then 
+                                task.wait(0.6) 
+                                break 
                             end
                         end
                     end
                 end
-            end
-            if buahTerpilih then break end
-        end
-        
-        if buahTerpilih then task.wait(0.5) end -- Jeda agar panel kanan muncul
-
-        -- =================================================================
-        -- LANGKAH 3: INPUT HARGA DI SEBELAH KANAN
-        -- =================================================================
-        local hargaTerinput = false
-        for _, gui in ipairs(PlayerGui:GetChildren()) do
-            if gui:IsA("ScreenGui") and gui.Enabled and not string.find(string.lower(gui.Name), "steven") then
-                for _, box in ipairs(gui:GetDescendants()) do
-                    if box:IsA("TextBox") and box.Visible then
-                        box.Text = HARGA_JUAL
-                        firesignal(box.FocusLost, true) -- Paksa system membaca inputan teks harga
-                        hargaTerinput = true
+                
+                -- =================================================================
+                -- FOTO 3: KLIK TOMBOL "SELL" HIJAU DI PANEL KANAN
+                -- =================================================================
+                -- (Note: Karena sistem harga di game ini sensitif, script akan otomatis langsung)
+                -- (menekan tombol SELL hijau bawaan agar buahnya langsung ke-listing dengan harga default RAP-nya!)
+                for _, obj in ipairs(gui:GetDescendants()) do
+                    if obj:IsA("TextButton") and obj.Text == "SELL" and obj.Visible then
+                        -- Kita pastikan dia bertuliskan kapital "SELL" murni di panel pasar
+                        if klikMulus(obj) then 
+                            task.wait(0.6) 
+                            break 
+                        end
+                    end
+                end
+                
+                -- =================================================================
+                -- FOTO 4: KLIK POP-UP "CONFIRM" HIJAU FINAL
+                -- =================================================================
+                for _, obj in ipairs(gui:GetDescendants()) do
+                    if obj:IsA("TextButton") and obj.Text == "Confirm" and obj.Visible then
+                        klikMulus(obj)
                         break
                     end
                 end
-            end
-            if hargaTerinput then break end
-        end
-        
-        if hargaTerinput then task.wait(0.4) end
 
-        -- =================================================================
-        -- LANGKAH 4 & 5: KLIK "CONFIRM" LISTING (PROTEKSI ANTI STEVEN)
-        -- =================================================================
-        for _, gui in ipairs(PlayerGui:GetChildren()) do
-            -- Kita saring mati-mati-an: GUI NPC Steven dilarang masuk!
-            if gui:IsA("ScreenGui") and gui.Enabled and not string.find(string.lower(gui.Name), "steven") and not string.find(string.lower(gui.Name), "npc") and not string.find(string.lower(gui.Name), "sell") then
-                for _, btn in ipairs(gui:GetDescendants()) do
-                    if btn:IsA("TextButton") or btn:IsA("ImageButton") then
-                        local txt = btn:IsA("TextButton") and string.lower(btn.Text) or ""
-                        local nm = string.lower(btn.Name)
-                        
-                        -- Kita utamakan kata 'confirm' atau 'list' untuk menghindari tombol jual ke NPC
-                        if string.find(nm, "confirm") or string.find(txt, "confirm") or string.find(nm, "post") or string.find(txt, "post") or (string.find(txt, "sell") and string.find(nm, "booth")) then
-                            paksaKlik(btn)
-                        end
-                    end
-                end
             end
         end
-        
     end)
 end
 
@@ -164,14 +134,14 @@ end
 -- [[ RUNNING ENGINE ]] --
 task.spawn(function()
    print("=========================================")
-   print("    YOHUB AUTO ALUR V2 (ANTI STEVEN)     ")
+   print("    YOHUB PREMIUM 4-STAGE ENGINE FIXED   ")
    print("=========================================")
-   print("Wajib: Klaim booth pasar dulu!")
+   print("Status: Menunggu Lu Klaim Booth Manual...")
    print("=========================================")
    
    while true do
-       eksekusiAutoListingSesuaiAlur()
-       task.wait(12) -- Menjalankan urutan ritual di atas setiap 12 detik sekali
+       eksekusiRitualAutoListing()
+       task.wait(8) -- Setiap 8 detik script nge-scan & ngisi slot kosong otomatis
    end
 end)
 
