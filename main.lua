@@ -1,33 +1,68 @@
--- [[ LOAD KAVO UI LIBRARY (ENTENG & ANTI-BUG DELTA) ]] --
+-- [[ LOAD KAVO UI LIBRARY ]] --
 local Kavo = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
-local Window = Kavo.CreateLib("YoHub | Grow a Garden", "BloodTheme") -- Tema Merah Hitam
+local Window = Kavo.CreateLib("YoHub | Grow a Garden", "BloodTheme")
 
 -- [[ VARIABLES & CONFIG ]] --
 local _G = getgenv and getgenv() or _G
 _G.AutoHopEnabled = false
-_G.WaktuTunggu = 1200 -- Default 20 menit (dalam detik)
+_G.WaktuTunggu = 1200
 _G.SisaWaktuDetik = 1200
 
 _G.AutoStockEnabled = false
-_G.FruitYangDijual = "Apple"
+_G.FruitYangDijual = ""
 _G.HargaJual = 100
 
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local localPlayer = Players.LocalPlayer
 
 shared.VisitedServers = shared.VisitedServers or {}
 table.insert(shared.VisitedServers, game.JobId)
 
 -- [[ UI TABS ]] --
 local MainTab = Window:NewTab("Main Features")
+local UIConfigTab = Window:NewTab("UI Settings")
+
 local HopSection = MainTab:NewSection("Auto Hop Server")
 local StockSection = MainTab:NewSection("Auto Stock Booth")
+local ConfigSection = UIConfigTab:NewSection("Tampilan UI")
 
 -- [[ LABELS MONITORING ]] --
 local StatusLabel = HopSection:NewLabel("Status: Auto Hop Mati")
 local TimerLabel = HopSection:NewLabel("Sisa Waktu: --:--")
+
+-- [[ FUNCTION SCAN INVENTORY UNTUK DROPDOWN ]] --
+local function getInventoryFruits()
+    local fruits = {}
+    -- Cek di Backpack (Inventory yang sedang dipegang/bawa)
+    local backpack = localPlayer:FindFirstChild("Backpack")
+    if backpack then
+        for _, item in ipairs(backpack:GetChildren()) do
+            -- Memastikan tidak memasukkan Tool duplikat ke daftar
+            if not table.find(fruits, item.Name) then
+                table.insert(fruits, item.Name)
+            end
+        end
+    end
+    
+    -- Cek juga di Character (kalau buahnya lagi di-equip/dipegang di tangan)
+    local char = localPlayer.Character
+    if char then
+        for _, item in ipairs(char:GetChildren()) do
+            if item:IsA("Tool") and not table.find(fruits, item.Name) then
+                table.insert(fruits, item.Name)
+            end
+        end
+    end
+
+    -- Jika inventory kosong, kasih opsi default
+    if #fruits == 0 then
+        table.insert(fruits, "Inventory Kosong / Pegang Buah Lu")
+    end
+    return fruits
+end
 
 -- [[ FUNCTION FORMAT WAKTU ]] --
 local function formatWaktu(totalDetik)
@@ -76,15 +111,16 @@ local function doAutoHop()
    end
 end
 
--- [[ FUNCTION AUTO STOCK (REMOTE ASLI) ]] --
+-- [[ FUNCTION AUTO STOCK ]] --
 local function doAutoStock()
     task.spawn(function()
         while _G.AutoStockEnabled do
-            pcall(function()
-                -- Menggunakan RemoteEvent hasil scan lu kemarin
-                ReplicatedStorage.GameEvents.UpdateStock:FireServer(_G.FruitYangDijual, _G.HargaJual)
-            end)
-            task.wait(10) -- Restock tiap 10 detik sekali
+            if _G.FruitYangDijual ~= "" and _G.FruitYangDijual ~= "Inventory Kosong / Pegang Buah Lu" then
+                pcall(function()
+                    ReplicatedStorage.GameEvents.UpdateStock:FireServer(_G.FruitYangDijual, _G.HargaJual)
+                end)
+            end
+            task.wait(10)
         end
     end)
 end
@@ -108,7 +144,7 @@ task.spawn(function()
 end)
 
 
--- [[ BUTTONS & TOGGLES - AUTO HOP ]] --
+-- [[ UI ELEMENTS - AUTO HOP ]] --
 
 HopSection:NewToggle("Aktifkan Auto Hop", "Otomatis pindah server pas waktu habis", function(Value)
     _G.AutoHopEnabled = Value
@@ -133,7 +169,7 @@ HopSection:NewButton("Instant Hop Sekarang", "Pindah server langsung tanpa nungg
 end)
 
 
--- [[ BUTTONS & INPUTS - AUTO STOCK ]] --
+-- [[ UI ELEMENTS - AUTO STOCK ]] --
 
 StockSection:NewToggle("Aktifkan Auto Stock", "Otomatis masukin buah ke booth", function(Value)
     _G.AutoStockEnabled = Value
@@ -142,8 +178,15 @@ StockSection:NewToggle("Aktifkan Auto Stock", "Otomatis masukin buah ke booth", 
     end
 end)
 
-StockSection:NewTextBox("Nama Buah / Fruit", "Ketik nama buah (Contoh: Apple, Banana)", function(Text)
-    _G.FruitYangDijual = Text
+-- Dropdown Buah Otomatis (Membaca isi inventory lu)
+local FruitDropdown = StockSection:NewDropdown("Pilih Buah Jualan", "Daftar buah di inventory lu", getInventoryFruits(), function(currentOption)
+    _G.FruitYangDijual = currentOption
+    print("YoHub: Buah dipilih -> " .. currentOption)
+end)
+
+-- Tombol Refresh Dropdown (Buat update daftar kalau lu abis panen buah baru)
+StockSection:NewButton("🔄 Refresh Daftar Buah", "Klik jika abis ambil buah baru dari inventory", function()
+    FruitDropdown:Refresh(getInventoryFruits())
 end)
 
 StockSection:NewTextBox("Harga Jual (Price)", "Masukkan angka harga", function(Text)
@@ -153,4 +196,16 @@ StockSection:NewTextBox("Harga Jual (Price)", "Masukkan angka harga", function(T
     else
         _G.HargaJual = 0
     end
+end)
+
+
+-- [[ UI ELEMENTS - SETTINGS (RESIZE/MINIMIZE) ]] --
+
+-- Tombol Sembunyikan UI (Biar gak menonjol dan layar lega)
+ConfigSection:NewKeybind("Tombol Hide UI", "Pencet tombol ini buat nutup/buka menu", Enum.KeyCode.F3, function()
+    Kavo:ToggleUI()
+end)
+
+ConfigSection:NewButton("Minimize / Sembunyikan Menu", "Klik untuk menyembunyikan sementara", function()
+    Kavo:ToggleUI()
 end)
