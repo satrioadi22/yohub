@@ -1,4 +1,4 @@
--- [[ YOHUB PREMIUM - SEAMLESS AUTO LISTING ENGINE COMPLETE ]] --
+-- [[ YOHUB PREMIUM - SEAMLESS AUTO LISTING FIX ANTI-NPC ]] --
 
 -- =========================================================================
 --  PENGATURAN CONFIG
@@ -40,7 +40,8 @@ local function eksekusiAutoListingSesuaiAlur()
         -- =================================================================
         local pencetCreate = false
         for _, gui in ipairs(PlayerGui:GetChildren()) do
-            if gui:IsA("ScreenGui") and gui.Enabled then
+            -- Kunci hanya ScreenGui yang aktif dan namanya berbau Booth/Market/Trade
+            if gui:IsA("ScreenGui") and gui.Enabled and not string.find(string.lower(gui.Name), "steven") and not string.find(string.lower(gui.Name), "npc") then
                 for _, obj in ipairs(gui:GetDescendants()) do
                     if obj:IsA("TextButton") or obj:IsA("ImageButton") then
                         local txt = obj:IsA("TextButton") and string.lower(obj.Text) or ""
@@ -65,7 +66,7 @@ local function eksekusiAutoListingSesuaiAlur()
         -- =================================================================
         local buahTerpilih = false
         for _, gui in ipairs(PlayerGui:GetChildren()) do
-            if gui:IsA("ScreenGui") and gui.Enabled then
+            if gui:IsA("ScreenGui") and gui.Enabled and not string.find(string.lower(gui.Name), "steven") then
                 for _, obj in ipairs(gui:GetDescendants()) do
                     if (obj:IsA("TextLabel") or obj:IsA("TextButton")) and string.find(string.lower(obj.Text), string.lower(NAMA_ITEM)) then
                         -- Cari tombol pembungkus dari tulisan buah tersebut
@@ -89,7 +90,7 @@ local function eksekusiAutoListingSesuaiAlur()
         -- =================================================================
         local hargaTerinput = false
         for _, gui in ipairs(PlayerGui:GetChildren()) do
-            if gui:IsA("ScreenGui") and gui.Enabled then
+            if gui:IsA("ScreenGui") and gui.Enabled and not string.find(string.lower(gui.Name), "steven") then
                 for _, box in ipairs(gui:GetDescendants()) do
                     if box:IsA("TextBox") and box.Visible then
                         box.Text = HARGA_JUAL
@@ -105,17 +106,18 @@ local function eksekusiAutoListingSesuaiAlur()
         if hargaTerinput then task.wait(0.4) end
 
         -- =================================================================
-        -- LANGKAH 4 & 5: KLIK "SELL" KEMUDIAN POP-UP "CONFIRM"
+        -- LANGKAH 4 & 5: KLIK "CONFIRM" LISTING (PROTEKSI ANTI STEVEN)
         -- =================================================================
         for _, gui in ipairs(PlayerGui:GetChildren()) do
-            if gui:IsA("ScreenGui") and gui.Enabled then
+            -- Kita saring mati-mati-an: GUI NPC Steven dilarang masuk!
+            if gui:IsA("ScreenGui") and gui.Enabled and not string.find(string.lower(gui.Name), "steven") and not string.find(string.lower(gui.Name), "npc") and not string.find(string.lower(gui.Name), "sell") then
                 for _, btn in ipairs(gui:GetDescendants()) do
                     if btn:IsA("TextButton") or btn:IsA("ImageButton") then
                         local txt = btn:IsA("TextButton") and string.lower(btn.Text) or ""
                         local nm = string.lower(btn.Name)
                         
-                        -- Deteksi tombol Sell atau Confirm
-                        if string.find(nm, "sell") or string.find(txt, "sell") or string.find(nm, "confirm") or string.find(txt, "confirm") then
+                        -- Kita utamakan kata 'confirm' atau 'list' untuk menghindari tombol jual ke NPC
+                        if string.find(nm, "confirm") or string.find(txt, "confirm") or string.find(nm, "post") or string.find(txt, "post") or (string.find(txt, "sell") and string.find(nm, "booth")) then
                             paksaKlik(btn)
                         end
                     end
@@ -162,9 +164,9 @@ end
 -- [[ RUNNING ENGINE ]] --
 task.spawn(function()
    print("=========================================")
-   print("    YOHUB AUTO ALUR RUNNING...           ")
+   print("    YOHUB AUTO ALUR V2 (ANTI STEVEN)     ")
    print("=========================================")
-   print("Cara Pakai: Klaim booth lu secara manual!")
+   print("Wajib: Klaim booth pasar dulu!")
    print("=========================================")
    
    while true do
