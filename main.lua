@@ -10,7 +10,7 @@ _G.SisaWaktuDetik = 1200
 
 _G.AutoStockEnabled = false
 _G.FruitYangDijual = ""
-_G.HargaJual = 100 -- Default awal kita set 100 biar gak 0
+_G.HargaJual = 100 -- Kita kasih harga bawaan 100 biar langsung jalan kalau belum diubah
 
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
@@ -32,7 +32,7 @@ local ConfigSection = UIConfigTab:NewSection("Tampilan UI")
 -- [[ LABELS MONITORING ]] --
 local StatusLabel = HopSection:NewLabel("Status: Auto Hop Mati")
 local TimerLabel = HopSection:NewLabel("Sisa Waktu: --:--")
-local InfoStockLabel = StockSection:NewLabel("Target: Belum Pilih Buah")
+local InfoStockLabel = StockSection:NewLabel("Target: Belum Pilih | Harga: 100")
 
 -- [[ FUNCTION SCAN INVENTORY ]] --
 local function getInventoryFruits()
@@ -59,21 +59,18 @@ local function getInventoryFruits()
     return fruits
 end
 
--- [[ FUNCTION AUTO STOCK FIX ]] --
+-- [[ FUNCTION AUTO STOCK ]] --
 local function doAutoStock()
     task.spawn(function()
         while _G.AutoStockEnabled do
             if _G.FruitYangDijual ~= "" and _G.FruitYangDijual ~= "Inventory Kosong / Pegang Buah Lu" then
                 pcall(function()
-                    -- KITA COBA BEBERAPA VARIASI PARAMETER BIAR SELLER SERVER MENERIMA:
-                    -- Variabel 1: NamaBuah, Harga, Jumlah (1), Slot (1)
+                    -- Kirim data ke Remote asli game
                     ReplicatedStorage.GameEvents.UpdateStock:FireServer(_G.FruitYangDijual, _G.HargaJual, 1, 1)
-                    
-                    -- Variabel 2 (Alternatif standar game): Hanya Nama dan Harga
                     ReplicatedStorage.GameEvents.UpdateStock:FireServer(_G.FruitYangDijual, _G.HargaJual)
                 end)
             end
-            task.wait(5) -- Kita percepat cek stoknya per 5 detik sekali
+            task.wait(5)
         end
     end)
 end
@@ -130,7 +127,7 @@ task.spawn(function()
    end
 end)
 
--- [[ UI LOGIC ]] --
+-- [[ UI LOGIC - HOP ]] --
 HopSection:NewToggle("Aktifkan Auto Hop", "Otomatis pindah server", function(Value)
     _G.AutoHopEnabled = Value
     _G.SisaWaktuDetik = _G.WaktuTunggu
@@ -147,7 +144,7 @@ HopSection:NewButton("Instant Hop Sekarang", "Pindah langsung", function()
     doAutoHop()
 end)
 
--- SEKSI STOCK
+-- [[ UI LOGIC - STOCK ]] --
 StockSection:NewToggle("Aktifkan Auto Stock", "Otomatis isi booth", function(Value)
     _G.AutoStockEnabled = Value
     if Value then doAutoStock() end
@@ -162,13 +159,16 @@ StockSection:NewButton("🔄 Refresh Daftar Buah", "Update list info buah", func
     FruitDropdown:Refresh(getInventoryFruits())
 end)
 
--- FIX TEXTBOX HARGA
-StockSection:NewTextBox("Harga Jual (Pencet ENTER setelah ketik!)", "Ketik angka lalu TEKAN ENTER", function(Text)
-    local angka = tonumber(Text)
-    if angka then
-        _G.HargaJual = angka
-        InfoStockLabel:UpdateLabel("Target: " .. _G.FruitYangDijual .. " | Harga: " .. tostring(_G.HargaJual))
-    end
+-- SOLUSI FIX: GANTI PAKE SLIDER HARGA (BIAR GAK NYANGKUT DI KEYBOARD HP)
+StockSection:NewSlider("Atur Harga Jual", "Geser buat nentuin harga (10 - 2000)", 2000, 10, function(Value)
+    _G.HargaJual = Value
+    InfoStockLabel:UpdateLabel("Target: " .. _G.FruitYangDijual .. " | Harga: " .. tostring(_G.HargaJual))
+end)
+
+-- BUTTON QUICKSET BIAR JUALAN MAHAL LANGSUNG KELIK
+StockSection:NewDropdown("Set Harga Cepat (Alternatif)", "Pilih harga instan", {"50", "100", "250", "500", "1000", "5000"}, function(HargaPilihan)
+    _G.HargaJual = tonumber(HargaPilihan)
+    InfoStockLabel:UpdateLabel("Target: " .. _G.FruitYangDijual .. " | Harga: " .. tostring(_G.HargaJual))
 end)
 
 -- HIDE MENU
