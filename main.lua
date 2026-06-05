@@ -1,14 +1,14 @@
--- [[ YOHUB PREMIUM - PURE MARKET BOOTH STOCKER ]] --
+-- [[ YOHUB PREMIUM - SEAMLESS AUTO LISTING ENGINE COMPLETE ]] --
 
 -- =========================================================================
 --  PENGATURAN CONFIG
 -- =========================================================================
-local NAMA_ITEM      = "Bone Blossom" 
-local HARGA_JUAL     = "11"          
-local MENIT_AUTOHOP  = 20             
+local NAMA_ITEM      = "Bone Blossom" -- Nama buah jualan lu
+local HARGA_JUAL     = "500"          -- Harga jualan lu
+local MENIT_AUTOHOP  = 20             -- Waktu sebelum pindah server (menit)
 
 -- =========================================================================
---  LOGIKA UTAMA GAME
+--  LOGIKA UTAMA INTEGRATOR
 -- =========================================================================
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
@@ -19,80 +19,115 @@ local WAKTU_HOP_DETIK = MENIT_AUTOHOP * 60
 shared.VisitedServers = shared.VisitedServers or {}
 table.insert(shared.VisitedServers, game.JobId)
 
--- Fungsi klik virtual anti-bug Delta
-local function klikTombol(objek)
-    if objek and objek.Visible then
-        firesignal(objek.MouseButton1Click)
-        firesignal(objek.MouseButton1Down)
-        firesignal(objek.Activated)
+-- Fungsi klik virtual segala jenis tombol UI (Anti-Bug Executor)
+local function paksaKlik(tombol)
+    if tombol and tombol.Visible then
+        firesignal(tombol.MouseButton1Click)
+        firesignal(tombol.MouseButton1Down)
+        firesignal(tombol.Activated)
         return true
     end
     return false
 end
 
--- [[ SYSTEM: PURE AUTOMATIC STOCKING VIA UI MARKET ONLY ]] --
-local function eksekusiAutoStockJeroanUI()
+-- [[ INTI ALGORITMA: AUTO LISTING MENGIKUTI ALUR GAME ]] --
+local function eksekusiAutoListingSesuaiAlur()
     pcall(function()
         local PlayerGui = localPlayer:WaitForChild("PlayerGui")
         
-        -- Kita cari ScreenGui yang beneran punya unsur nama "Booth", "Trade", "Market", atau "Shop"
-        -- Ini biar gak nyasar ke UI Kebun / UI NPC Steven lagi!
+        -- =================================================================
+        -- LANGKAH 1: KLIK "CREATE LISTING"
+        -- =================================================================
+        local pencetCreate = false
         for _, gui in ipairs(PlayerGui:GetChildren()) do
-            local namaGui = string.lower(gui.Name)
-            if gui:IsA("ScreenGui") and gui.Enabled and (string.find(namaGui, "booth") or string.find(namaGui, "trade") or string.find(namaGui, "market") or string.find(namaGui, "shop") or string.find(namaGui, "main")) then
-                
-                -- 1. OTOMATIS BUKA MENU EDIT BOOTH (Jika belum kebuka)
-                for _, btn in ipairs(gui:GetDescendants()) do
-                    if btn:IsA("TextButton") and (string.find(string.lower(btn.Name), "edit") or string.find(string.lower(btn.Text), "edit booth")) then
-                        klikTombol(btn)
-                    end
-                end
-                
-                task.wait(0.8) -- Jeda bentar biar UI-nya kebuka sempurna
-                
-                -- 2. CARI BUAH BONE BLOSSOM DI DALAM TEMPLATE INVENTORY BOOTH
-                for _, itemUI in ipairs(gui:GetDescendants()) do
-                    if (itemUI:IsA("TextLabel") or itemUI:IsA("TextButton")) and string.find(string.lower(itemUI.Text), string.lower(NAMA_ITEM)) then
-                        local tombolPilih = itemUI:IsA("TextButton") and itemUI or itemUI:FindFirstAncestorOfClass("TextButton") or itemUI.Parent
-                        if tombolPilih and tombolPilih:IsA("GuiButton") then
-                            klikTombol(tombolPilih) -- Klik/Pilih buahnya
+            if gui:IsA("ScreenGui") and gui.Enabled then
+                for _, obj in ipairs(gui:GetDescendants()) do
+                    if obj:IsA("TextButton") or obj:IsA("ImageButton") then
+                        local txt = obj:IsA("TextButton") and string.lower(obj.Text) or ""
+                        local nm = string.lower(obj.Name)
+                        
+                        if string.find(nm, "create") or string.find(txt, "create") or string.find(nm, "listing") or string.find(txt, "listing") then
+                            if paksaKlik(obj) then
+                                pencetCreate = true
+                                break
+                            end
                         end
                     end
                 end
-                
-                task.wait(0.4)
-                
-                -- 3. INPUT ANGKA HARGA JUAL PADA BOX YANG COCOK
+            end
+            if pencetCreate then break end
+        end
+        
+        if pencetCreate then task.wait(0.8) end -- Jeda agar UI Inventory terbuka
+
+        -- =================================================================
+        -- LANGKAH 2: PILIH BUAH DI MY INVENTORY
+        -- =================================================================
+        local buahTerpilih = false
+        for _, gui in ipairs(PlayerGui:GetChildren()) do
+            if gui:IsA("ScreenGui") and gui.Enabled then
+                for _, obj in ipairs(gui:GetDescendants()) do
+                    if (obj:IsA("TextLabel") or obj:IsA("TextButton")) and string.find(string.lower(obj.Text), string.lower(NAMA_ITEM)) then
+                        -- Cari tombol pembungkus dari tulisan buah tersebut
+                        local tombolBuah = obj:IsA("TextButton") and obj or obj:FindFirstAncestorOfClass("TextButton") or obj.Parent
+                        if tombolBuah and tombolBuah:IsA("GuiButton") then
+                            if paksaKlik(tombolBuah) then
+                                buahTerpilih = true
+                                break
+                            end
+                        end
+                    end
+                end
+            end
+            if buahTerpilih then break end
+        end
+        
+        if buahTerpilih then task.wait(0.5) end -- Jeda agar panel kanan muncul
+
+        -- =================================================================
+        -- LANGKAH 3: INPUT HARGA DI SEBELAH KANAN
+        -- =================================================================
+        local hargaTerinput = false
+        for _, gui in ipairs(PlayerGui:GetChildren()) do
+            if gui:IsA("ScreenGui") and gui.Enabled then
                 for _, box in ipairs(gui:GetDescendants()) do
                     if box:IsA("TextBox") and box.Visible then
-                        box.Text = HARGA_JUAL -- Masukin harga 500
-                        box:ReleaseFocus(true) -- Tekan Enter otomatis
+                        box.Text = HARGA_JUAL
+                        firesignal(box.FocusLost, true) -- Paksa system membaca inputan teks harga
+                        hargaTerinput = true
+                        break
                     end
                 end
-                
-                task.wait(0.4)
-                
-                -- 4. KLIK CONFIRM / STOCK DI MENU BOOTH
+            end
+            if hargaTerinput then break end
+        end
+        
+        if hargaTerinput then task.wait(0.4) end
+
+        -- =================================================================
+        -- LANGKAH 4 & 5: KLIK "SELL" KEMUDIAN POP-UP "CONFIRM"
+        -- =================================================================
+        for _, gui in ipairs(PlayerGui:GetChildren()) do
+            if gui:IsA("ScreenGui") and gui.Enabled then
                 for _, btn in ipairs(gui:GetDescendants()) do
                     if btn:IsA("TextButton") or btn:IsA("ImageButton") then
-                        local n = string.lower(btn.Name)
-                        local t = btn:IsA("TextButton") and string.lower(btn.Text) or ""
+                        local txt = btn:IsA("TextButton") and string.lower(btn.Text) or ""
+                        local nm = string.lower(btn.Name)
                         
-                        -- Kita saring ketat, tombol confirm harus di dalam UI booth, bukan UI Steven
-                        if string.find(n, "confirm") or string.find(t, "confirm") or string.find(n, "stock") or string.find(t, "stock") then
-                            klikTombol(btn)
+                        -- Deteksi tombol Sell atau Confirm
+                        if string.find(nm, "sell") or string.find(txt, "sell") or string.find(nm, "confirm") or string.find(txt, "confirm") then
+                            paksaKlik(btn)
                         end
                     end
                 end
-                
             end
         end
+        
     end)
 end
 
 -- [[ SYSTEM: AUTO HOP SERVER ]] --
 local function jalankanAutoHopServer()
-   print("[YoHub]: Waktu habis, mencari server market baru...")
    local placeId = game.PlaceId
    local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
    
@@ -127,14 +162,14 @@ end
 -- [[ RUNNING ENGINE ]] --
 task.spawn(function()
    print("=========================================")
-   print("    YOHUB AUTO RESTOCK MARKET ONLY       ")
+   print("    YOHUB AUTO ALUR RUNNING...           ")
    print("=========================================")
-   print("[INFO]: Script aktif. Silakan Klaim Booth!")
+   print("Cara Pakai: Klaim booth lu secara manual!")
    print("=========================================")
    
    while true do
-       eksekusiAutoStockJeroanUI()
-       task.wait(8) -- Nge-cek slot kosong tiap 8 detik
+       eksekusiAutoListingSesuaiAlur()
+       task.wait(12) -- Menjalankan urutan ritual di atas setiap 12 detik sekali
    end
 end)
 
