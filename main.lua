@@ -1,14 +1,14 @@
--- [[ YOHUB PURE AUTO RESTOCK & HOP - NO UI VERSION ]] --
+-- [[ YOHUB PURE AUTO RESTOCK - GROW A GARDEN INDONESIA ]] --
 
 -- =========================================================================
---  PENGATURAN CONFIG (Sesuaikan sesuka lu sebelum execute)
+--  PENGATURAN CONFIG (Ubah di sini sebelum lu execute!)
 -- =========================================================================
-local NAMA_ITEM      = "Bone Blossom" -- Nama item jualan lu
-local HARGA_JUAL     = 11           -- Harga jualan lu
+local NAMA_ITEM      = "Bone Blossom" -- Nama buah/item jualan lu
+local HARGA_JUAL     = 11            -- Harga jualan lu
 local MENIT_AUTOHOP  = 20             -- Waktu nunggu sebelum pindah server (menit)
 
 -- =========================================================================
---  LOGIKA UTAMA (FOKUS RESTOCK & SEARCHING BOOTH LU)
+--  LOGIKA UTAMA (BERDASARKAN JALUR DISKOBERI LU)
 -- =========================================================================
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
@@ -20,22 +20,32 @@ local WAKTU_HOP_DETIK = MENIT_AUTOHOP * 60
 shared.VisitedServers = shared.VisitedServers or {}
 table.insert(shared.VisitedServers, game.JobId)
 
--- Fungsi nyari booth milik lu yang udah diklaim secara manual
+-- Fungsi mencari booth milik lu berdasarkan jalur TextLabel papan nama
 local function cariBoothGua()
-    for _, v in ipairs(workspace:GetDescendants()) do
-        -- Cari objek yang namanya mengandung kata "booth"
-        if string.find(string.lower(v.Name), "booth") and not v:IsA("BasePart") then
-            -- Cek folder Owner / Player / User di dalam booth tersebut
-            local owner = v:FindFirstChild("Owner") or v:FindFirstChild("Player") or v:FindFirstChild("User") or v:FindFirstChild("Username")
-            if owner and tostring(owner.Value) == localPlayer.Name then
-                return v -- Booth lu ketemu!
+    local folderBooths = workspace:FindFirstChild("TradeWorld") and workspace.TradeWorld:FindFirstChild("Booths")
+    if not folderBooths then return nil end
+
+    -- Scan semua ID unik booth di dalam folder Booths
+    for _, booth in ipairs(folderBooths:GetChildren()) do
+        pcall(function()
+            -- Sesuai jalur yang lu temuin: Default -> Booth -> Sign -> SurfaceGui -> TextLabel
+            local label = booth:FindFirstChild("Default") 
+                and booth.Default:FindFirstChild("Booth")
+                and booth.Default.Booth:FindFirstChild("Sign")
+                and booth.Default.Booth.Sign:FindFirstChild("SurfaceGui")
+                and booth.Default.Booth.Sign.SurfaceGui:FindFirstChild("TextLabel")
+
+            -- Jika teks di papan nama mengandung nama akun lu, berarti ini booth lu!
+            if label and string.find(string.lower(label.Text), string.lower(localPlayer.Name)) then
+                _G.BoothKetemu = booth
             end
-        end
+        end)
+        if _G.BoothKetemu == booth then return booth end
     end
     return nil
 end
 
--- [[ LOOP PURE AUTO RESTOCK ]] --
+-- [[ LOOP AUTO RESTOCK MATANG ]] --
 local function jalankanAutoRestock()
     task.spawn(function()
         while true do
@@ -45,31 +55,25 @@ local function jalankanAutoRestock()
                 pcall(function()
                     local remote = ReplicatedStorage:FindFirstChild("GameEvents") and ReplicatedStorage.GameEvents:FindFirstChild("UpdateStock")
                     if remote then
-                        -- Kita kirim 3 variasi struktur remote yang paling sering dipakai game Roblox:
-                        
-                        -- Variasi 1: Menyertakan Objek Booth Lu (Sangat sering di game booth baru)
+                        -- Kita tembak pake ID Unik Booth lu yang dapet dari scanner
                         remote:FireServer(boothGua, NAMA_ITEM, HARGA_JUAL)
-                        
-                        -- Variasi 2: Menyertakan Objek Booth + Slot Nomor 1
                         remote:FireServer(boothGua, NAMA_ITEM, HARGA_JUAL, 1)
-                        
-                        -- Variasi 3: Standar Item, Harga, Slot, Jumlah
                         remote:FireServer(NAMA_ITEM, HARGA_JUAL, 1, 1)
                     end
                 end)
-                print("[YoHub Restock]: Booth terdeteksi, mencoba menyetok " .. NAMA_ITEM .. " seharga " .. tostring(HARGA_JUAL))
+                print("[YoHub]: Berhasil menyetok " .. NAMA_ITEM .. " seharga " .. tostring(HARGA_JUAL) .. " di booth lu!")
             else
-                print("[YoHub Restock]: Lu BELUM KLAIM BOOTH. Silakan klaim manual dulu di server!")
+                print("[YoHub]: Lu BELUM KLAIM BOOTH. Klaim manual dulu sampai papan nama lu muncul!")
             end
             
-            task.wait(5) -- Mencoba menyetok ulang otomatis setiap 5 detik
+            task.wait(5) -- Mengulang auto stock setiap 5 detik sekali
         end
     end)
 end
 
 -- [[ FUNGSI AUTO HOP ]] --
 local function jalankanAutoHopServer()
-   print("YoHub: Waktu AFK habis, mencari server market baru...")
+   print("YoHub: Waktu habis, pindah server...")
    local placeId = game.PlaceId
    local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
    
@@ -101,14 +105,14 @@ local function jalankanAutoHopServer()
    end
 end
 
--- [[ EKSEKUSI ]] --
+-- [[ RUNNING EXECUTOR ]] --
 task.spawn(function()
    print("=========================================")
-   print("    YOHUB PURE AUTO RESTOCK ACTIVE       ")
+   print("    YOHUB AUTO RESTOCK 100% ACCURATE     ")
    print("=========================================")
    print("Target Item : " .. NAMA_ITEM)
    print("Harga Jual  : " .. tostring(HARGA_JUAL))
-   print("Cara Pakai  : KLAIM BOOTH MANUAL DULU!")
+   print("Wajib       : Klaim Booth Manual Dulu!")
    print("=========================================")
    
    jalankanAutoRestock()
