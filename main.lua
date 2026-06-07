@@ -1,147 +1,106 @@
--- ====================================================================
--- CONFIGURATION & AUTO-SAVE LOGIC
--- ====================================================================
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local Workspace = game:GetService("Workspace")
 local HttpService = game:GetService("HttpService")
 local CoreGui = game:GetService("CoreGui")
 
-local FILE_NAME = "BoothAutoClicker_Config.json"
-local _G = _G or {}
-_G.AutoClickBooth = false -- Default awal jika file config belum ada
+local FILE_NAME = "BoothClickerConfig.json"
+_G.AutoClickBooth = false
 
--- Fungsi untuk membaca pengaturan yang tersimpan
+-- Load config
 local function loadConfig()
     if isfile and isfile(FILE_NAME) then
-        local success, data = pcall(function()
+        local ok, data = pcall(function()
             return HttpService:JSONDecode(readfile(FILE_NAME))
         end)
-        if success and type(data) == "table" then
-            if data.Enabled ~= nil then
-                _G.AutoClickBooth = data.Enabled
-            end
+        if ok and type(data) == "table" and data.Enabled ~= nil then
+            _G.AutoClickBooth = data.Enabled
         end
     end
 end
 
--- Fungsi untuk menyimpan pengaturan
+-- Save config
 local function saveConfig()
     if writefile then
-        local data = { Enabled = _G.AutoClickBooth }
-        writefile(FILE_NAME, HttpService:JSONEncode(data))
+        writefile(FILE_NAME, HttpService:JSONEncode({ Enabled = _G.AutoClickBooth }))
     end
 end
 
--- Load config di awal script dijalankan
 loadConfig()
 
--- ====================================================================
--- SIMPLE GUI CREATION (Hanya 1 Tombol Toggle)
--- ====================================================================
-
--- Hapus UI lama jika script di-load ulang tanpa relog
-if CoreGui:FindFirstChild("BoothClickerUI") then
-    CoreGui.BoothClickerUI:Destroy()
+-- =====================
+-- GUI
+-- =====================
+if CoreGui:FindFirstChild("BoothUI") then
+    CoreGui.BoothUI:Destroy()
 end
 
 local ScreenGui = Instance.new("ScreenGui")
-local MainFrame = Instance.new("Frame")
-local ToggleButton = Instance.new("TextButton")
-local UICorner_Frame = Instance.new("UICorner")
-local UICorner_Button = Instance.new("UICorner")
-
-ScreenGui.Name = "BoothClickerUI"
+ScreenGui.Name = "BoothUI"
 ScreenGui.Parent = CoreGui
 ScreenGui.ResetOnSpawn = false
 
--- Frame Utama (Bisa digeser/drag)
-MainFrame.Name = "MainFrame"
-MainFrame.Parent = ScreenGui
-MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-MainFrame.Position = UDim2.new(0.05, 0, 0.4, 0) -- Posisi di kiri layar
-MainFrame.Size = UDim2.new(0, 160, 0, 60)
-MainFrame.Active = true
-MainFrame.Draggable = true -- Membuat UI bisa digeser sesuai selera
+local Frame = Instance.new("Frame")
+Frame.Parent = ScreenGui
+Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Frame.Position = UDim2.new(0.05, 0, 0.4, 0)
+Frame.Size = UDim2.new(0, 170, 0, 80)
+Frame.Active = true
+Frame.Draggable = true
+Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 10)
 
-UICorner_Frame.CornerRadius = UDim.new(0, 8)
-UICorner_Frame.Parent = MainFrame
+-- Label judul
+local Title = Instance.new("TextLabel")
+Title.Parent = Frame
+Title.BackgroundTransparency = 1
+Title.Position = UDim2.new(0, 0, 0, 5)
+Title.Size = UDim2.new(1, 0, 0, 20)
+Title.Text = "Booth Auto Click"
+Title.TextColor3 = Color3.fromRGB(180, 180, 180)
+Title.Font = Enum.Font.SourceSansBold
+Title.TextSize = 13
 
--- Tombol Toggle On/Off
-ToggleButton.Name = "ToggleButton"
-ToggleButton.Parent = MainFrame
-ToggleButton.Position = UDim2.new(0.05, 0, 0.15, 0)
-ToggleButton.Size = UDim2.new(0, 142, 0, 42)
-ToggleButton.Font = Enum.Font.SourceSansBold
-ToggleButton.TextSize = 16
+-- Tombol toggle
+local Toggle = Instance.new("TextButton")
+Toggle.Parent = Frame
+Toggle.Position = UDim2.new(0.08, 0, 0, 30)
+Toggle.Size = UDim2.new(0, 142, 0, 38)
+Toggle.Font = Enum.Font.SourceSansBold
+Toggle.TextSize = 15
+Instance.new("UICorner", Toggle).CornerRadius = UDim.new(0, 8)
 
-UICorner_Button.CornerRadius = UDim.new(0, 6)
-UICorner_Button.Parent = ToggleButton
-
--- Fungsi untuk memperbarui tampilan tombol berdasarkan status
-local function updateButtonDisplay()
+local function updateUI()
     if _G.AutoClickBooth then
-        ToggleButton.Text = "Auto Click: ON"
-        ToggleButton.BackgroundColor3 = Color3.fromRGB(46, 204, 113) -- Warna Hijau
-        ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        Toggle.Text = "Auto Click: ON"
+        Toggle.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
     else
-        ToggleButton.Text = "Auto Click: OFF"
-        ToggleButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60) -- Warna Merah
-        ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        Toggle.Text = "Auto Click: OFF"
+        Toggle.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
     end
+    Toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
 end
 
--- Pemicu saat tombol di klik
-ToggleButton.MouseButton1Click:Connect(function()
+Toggle.MouseButton1Click:Connect(function()
     _G.AutoClickBooth = not _G.AutoClickBooth
-    updateButtonDisplay()
-    saveConfig() -- Simpan status terbaru ke storage
+    updateUI()
+    saveConfig()
 end)
 
--- Tampilkan status saat pertama kali load
-updateButtonDisplay()
+updateUI()
 
--- ====================================================================
--- AUTO CLICK CORE LOGIC
--- ====================================================================
-local function autoClickBooth()
-    -- Cek apakah fitur sedang aktif
-    if not _G.AutoClickBooth then return end
-    
-    local character = LocalPlayer.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-    
-    local myPos = character.HumanoidRootPart.Position
-    local closestPrompt = nil
-    local shortestDistance = math.huge
-
-    -- Mencari ProximityPrompt (Tombol Edit Booth dari screenshot Last Screenshot 2026.06.07 - 22.51.12.93.jpg)
-    for _, v in pairs(Workspace:GetDescendants()) do
-        if v:IsA("ProximityPrompt") then
-            -- Filter agar lebih fokus ke Booth (opsional)
-            if v.ActionText == "Edit" or v.ObjectText == "Booth" or string.find(string.lower(v.ActionText), "booth") then
-                local parent = v.Parent
-                if parent and parent:IsA("BasePart") then
-                    local distance = (myPos - parent.Position).Magnitude
-                    if distance < shortestDistance then
-                        shortestDistance = distance
-                        closestPrompt = v
-                    end
-                end
-            end
-        end
-    end
-
-    -- Eksekusi klik otomatis jika berada dalam jarak jangkauan (15 studs)
-    if closestPrompt and shortestDistance <= 15 then
-        fireproximityprompt(closestPrompt)
-    end
-end
-
--- Loop utama yang berjalan di latar belakang setiap 0.5 detik agar lebih responsif
+-- =====================
+-- AUTO CLICK LOOP
+-- =====================
 task.spawn(function()
     while true do
-        task.wait(0.5)
-        pcall(autoClickBooth)
+        task.wait(8)
+        if _G.AutoClickBooth then
+            pcall(function()
+                local btn = LocalPlayer.PlayerGui.Teleport_UI.TradePlaza.Booth
+                if btn then
+                    btn.MouseButton1Click:Fire()
+                    print("Booth clicked!")
+                end
+            end)
+        end
     end
 end)
