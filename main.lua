@@ -1,58 +1,68 @@
--- // AUTO HOP V6 (HOOK DELTA BYPASS - SENJATA RAHASIA) \\ --
+-- // AUTO HOP V8 (HYDRA BYPASS - queueontopik METHOD) \\ --
 
 local Players = game:GetService("Players")
-local OldTeleport = nil
-local LocalPlayer = Players.LocalPlayer
+local HttpService = game:GetService("HttpService")
 
 local MIN_PLAYERS = 5
 local placeId = game.PlaceId
+local LocalPlayer = Players.LocalPlayer
 
 local isToggled = true 
 local isHopping = false
 
--- // SENJATA RAHASIA: NYIMPEN FUNGSI TELEPORT SEBELUM DELTA HAPUS \\ --
-pcall(function()
-    -- Kita nyimpen fungsi asli Roblox sebelum sempat di-block sama Delta
-    OldTeleport = game:GetService("TeleportService").TeleportToPlaceInstance
-end)
-
--- // FUNGSI HOP DENGAN HOOK \\ --
-local function forceHop()
+-- // FUNGSI HOP PAKAI TRIK HYDRAHUB (BYPASS DELTA) \\ --
+local function hopServer()
     if isHopping then return end
     isHopping = true
-    StatusLabel.Text = "Status: Forcing Hop..."
+    StatusLabel.Text = "Status: Mencari server..."
     StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
 
-    local hopped = false
-
-    -- CARA 1: Pake fungsi asli yang kita selametin tadi
-    if OldTeleport then
-        pcall(function()
-            StatusLabel.Text = "Status: Hooked! Teleporting..."
-            -- Kita pakai fungsi Roblox yang asli, bukan yang udah dioprek Delta
-            OldTeleport(game:GetService("TeleportService"), placeId, game.JobId, LocalPlayer)
-            hopped = true
-        end)
-    end
-
-    -- CARA 2: Fallback ke game:HttpGet (Biasanya tembus kalau Cara 1 gagal ngambil job id)
-    if not hopped then
-        pcall(function()
-            StatusLabel.Text = "Status: Rejoining Server..."
+    local foundServer = false
+    
+    -- Cari server lain via API (Sekarang HttpService udah work)
+    pcall(function()
+        local cursor = nil
+        while true do
+            local url = cursor and ("https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Desc&limit=100&cursor=" .. cursor) or ("https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Desc&limit=100")
+            
+            local response = HttpService:JSONDecode(game:HttpGet(url))
+            
+            for _, server in pairs(response.data) do
+                if type(server.playing) == "number" and server.playing >= MIN_PLAYERS and server.id ~= game.JobId then
+                    StatusLabel.Text = "Status: Hopping via Hydra!"
+                    StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+                    
+                    -- INI RAHASIANYA: PAKAI queueontopik BIAR DELTA NGE-BLOCK NGGAK NYALA
+                    if queueontopik then
+                        queueontopik("TeleportBypass", 'game:GetService("TeleportService"):TeleportToPlaceInstance('..placeId..', "'..server.id..'", game.Players.LocalPlayer)')
+                    else
+                        -- Kalau executor bukan Delta (gak ada queueontopik), pake cara biasa
+                        game:GetService("TeleportService"):TeleportToPlaceInstance(placeId, server.id, LocalPlayer)
+                    end
+                    
+                    foundServer = true
+                    return
+                end
+            end
+            
+            cursor = response.nextPageCursor
+            if not cursor then break end
+            task.wait(1)
+        end
+    end)
+    
+    -- Fallback kalau API error, tetap pakai queueontopik
+    if not foundServer then
+        StatusLabel.Text = "Status: Fallback Hop..."
+        StatusLabel.TextColor3 = Color3.fromRGB(255, 100, 0)
+        if queueontopik then
+            queueontopik("TeleportBypass", 'game:GetService("TeleportService"):Teleport('..placeId..', game.Players.LocalPlayer)')
+        else
             game:GetService("TeleportService"):Teleport(placeId, LocalPlayer)
-            hopped = true
-        end)
+        end
     end
-
-    -- CARA 3: Respawn karakter paksa
-    if not hopped then
-        pcall(function()
-            StatusLabel.Text = "Status: Respawn Character..."
-            LocalPlayer.Character:FindFirstChild("Humanoid").Health = 0
-        end)
-    end
-
-    task.wait(8) -- Waktu buat loading screen
+    
+    task.wait(8)
     isHopping = false
 end
 
@@ -115,7 +125,7 @@ StatusLabel.BackgroundTransparency = 1
 StatusLabel.Position = UDim2.new(0, 0, 0.65, 0)
 StatusLabel.Size = UDim2.new(1, 0, 0, 35)
 StatusLabel.Font = Enum.Font.Gotham
-StatusLabel.Text = "Status: Hooked & Ready"
+StatusLabel.Text = "Status: Hydra Bypass"
 StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
 StatusLabel.TextSize = 11
 StatusLabel.TextWrapped = true
@@ -141,7 +151,7 @@ task.spawn(function()
         if isToggled and not isHopping then
             local playerCount = #Players:GetPlayers()
             if playerCount < MIN_PLAYERS then
-                forceHop()
+                hopServer()
             else
                 StatusLabel.Text = "Status: Aman ("..playerCount.." Pemain)"
                 StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
