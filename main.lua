@@ -1,27 +1,14 @@
--- // AUTO HOP SERVER V2 (ANTI-ERROR & FALLBACK) \\ --
+-- // AUTO HOP SERVER V3 (TANPA SAVE FILE - ANTI ERROR DELTA) \\ --
 
 local Players = game:GetService("Players")
 local TS = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
 
 local MIN_PLAYERS = 5
-local CONFIG_NAME = "AutoHopConfig.txt"
 
-local isToggled = false
+-- Langsung TRUE biar auto jalan tanpa pencet tombol
+local isToggled = true 
 local isHopping = false
-
--- // SISTEM SAVE CONFIG \\ --
-local function saveConfig()
-    pcall(function() writefile(CONFIG_NAME, tostring(isToggled)) end)
-end
-
-local function loadConfig()
-    local success, data = pcall(function() return readfile(CONFIG_NAME) end)
-    if success and data == "true" then
-        return true
-    end
-    return false
-end
 
 -- // FUNGSI TELEPORT BYPASS DELTA \\ --
 local function teleportTo(placeId, jobId)
@@ -40,7 +27,7 @@ local function teleportTo(placeId, jobId)
     end
 end
 
--- // FUNGSI CARI SERVER (FALLBACK) \\ --
+-- // FUNGSI CARI SERVER (DENGAN FALLBACK) \\ --
 local function findNewServer()
     if isHopping then return end
     isHopping = true
@@ -50,7 +37,7 @@ local function findNewServer()
     local placeId = game.PlaceId
     local foundServer = false
     
-    -- CARA 1: Pake API (Paling aman kalau work)
+    -- CARA 1: Pake API Roblox
     local apiSuccess = pcall(function()
         local cursor = nil
         while true do
@@ -59,9 +46,9 @@ local function findNewServer()
             local response = HttpService:JSONDecode(game:HttpGet(url))
             
             for _, server in pairs(response.data) do
-                -- Cari server yang ramai dan BUKAN server saat ini
                 if type(server.playing) == "number" and server.playing >= MIN_PLAYERS and server.id ~= game.JobId then
                     StatusLabel.Text = "Status: Hopping via API!"
+                    StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
                     teleportTo(placeId, server.id)
                     foundServer = true
                     return
@@ -74,13 +61,13 @@ local function findNewServer()
         end
     end)
     
-    -- CARA 2: Fallback kalau API error (Langsung teleport acak)
+    -- CARA 2: Fallback kalau API error/blokir
     if not foundServer then
-        warn("[HOP] API Gagal atau server penuh, menggunakan Fallback Teleport...")
+        warn("[HOP] API Gagal, menggunakan Fallback Teleport...")
         StatusLabel.Text = "Status: Fallback Hop..."
         StatusLabel.TextColor3 = Color3.fromRGB(255, 100, 0)
         task.wait(1)
-        teleportTo(placeId, nil) -- Ini bakal masukin lu ke server mana aja yang kosong/ada slot
+        teleportTo(placeId, nil)
     end
     
     task.wait(5)
@@ -94,6 +81,7 @@ local TitleLabel = Instance.new("TextLabel")
 local ToggleBtn = Instance.new("TextButton")
 local StatusLabel = Instance.new("TextLabel")
 
+-- Hapus UI lama kalau ada
 pcall(function()
     if game.CoreGui:FindFirstChild("AutoHopUI") then
         game.CoreGui:FindFirstChild("AutoHopUI"):Destroy()
@@ -108,7 +96,7 @@ MainFrame.Name = "MainFrame"
 MainFrame.Parent = ScreenGui
 MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 MainFrame.Position = UDim2.new(0.02, 0, 0.4, 0)
-MainFrame.Size = UDim2.new(0, 180, 0, 130) -- Dibikin agak panjan biar text status muat
+MainFrame.Size = UDim2.new(0, 180, 0, 130)
 MainFrame.Active = true
 MainFrame.Draggable = true
 
@@ -127,11 +115,11 @@ TitleLabel.TextSize = 16
 
 ToggleBtn.Name = "ToggleBtn"
 ToggleBtn.Parent = MainFrame
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50) -- Langsung HIJAU
 ToggleBtn.Position = UDim2.new(0.1, 0, 0.25, 0)
 ToggleBtn.Size = UDim2.new(0.8, 0, 0, 35)
 ToggleBtn.Font = Enum.Font.GothamBold
-ToggleBtn.Text = "OFF"
+ToggleBtn.Text = "ON" -- Langsung ON
 ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 ToggleBtn.TextSize = 14
 ToggleBtn.AutoButtonColor = true
@@ -146,15 +134,14 @@ StatusLabel.BackgroundTransparency = 1
 StatusLabel.Position = UDim2.new(0, 0, 0.65, 0)
 StatusLabel.Size = UDim2.new(1, 0, 0, 35)
 StatusLabel.Font = Enum.Font.Gotham
-StatusLabel.Text = "Status: Standby"
-StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+StatusLabel.Text = "Status: Aktif (Auto)"
+StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
 StatusLabel.TextSize = 11
-StatusLabel.TextWrapped = true -- Biar text kebawah kalau kepanjangan
+StatusLabel.TextWrapped = true
 
--- // LOGIKA TOMBOL \\ --
+-- // LOGIKA TOMBOL (Masih bisa diclick OFF kalau mau matiin) \\ --
 ToggleBtn.MouseButton1Click:Connect(function()
     isToggled = not isToggled
-    saveConfig()
     
     if isToggled then
         ToggleBtn.Text = "ON"
@@ -183,12 +170,3 @@ task.spawn(function()
         end
     end
 end)
-
--- AUTO ON KALAU CONFIG TRUE
-if loadConfig() then
-    isToggled = true
-    ToggleBtn.Text = "ON"
-    ToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
-    StatusLabel.Text = "Status: Aktif (Auto)"
-    StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-end
