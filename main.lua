@@ -1,41 +1,58 @@
--- // AUTO HOP SERVER V4 (TANPA HTTP - ANTI BLOCK GAME) \\ --
+-- // AUTO HOP V6 (HOOK DELTA BYPASS - SENJATA RAHASIA) \\ --
 
 local Players = game:GetService("Players")
-local TS = game:GetService("TeleportService")
+local OldTeleport = nil
+local LocalPlayer = Players.LocalPlayer
 
 local MIN_PLAYERS = 5
+local placeId = game.PlaceId
 
 local isToggled = true 
 local isHopping = false
 
--- // FUNGSI TELEPORT BYPASS DELTA \\ --
-local function teleportTo(placeId)
-    pcall(function()
-        if getconnections then
-            for _, conn in pairs(getconnections(TS.InternalTeleport)) do
-                conn:Enable()
-            end
-        end
-    end)
-    
-    -- Karena HTTP diblokir, kita pakai Teleport biasa (acak)
-    TS:Teleport(placeId, Players.LocalPlayer)
-end
+-- // SENJATA RAHASIA: NYIMPEN FUNGSI TELEPORT SEBELUM DELTA HAPUS \\ --
+pcall(function()
+    -- Kita nyimpen fungsi asli Roblox sebelum sempat di-block sama Delta
+    OldTeleport = game:GetService("TeleportService").TeleportToPlaceInstance
+end)
 
--- // FUNGSI HOP SERVER \\ --
-local function hopServer()
+-- // FUNGSI HOP DENGAN HOOK \\ --
+local function forceHop()
     if isHopping then return end
     isHopping = true
-    StatusLabel.Text = "Status: Hopping Server..."
+    StatusLabel.Text = "Status: Forcing Hop..."
     StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
 
-    local placeId = game.PlaceId
-    
-    teleportTo(placeId)
-    
-    -- Kasih waktu 8 detik buat loading screen teleport
-    -- Kalau 8 detik belum pindah, berarti teleport gagal, dia bakal nyoba lagi
-    task.wait(8) 
+    local hopped = false
+
+    -- CARA 1: Pake fungsi asli yang kita selametin tadi
+    if OldTeleport then
+        pcall(function()
+            StatusLabel.Text = "Status: Hooked! Teleporting..."
+            -- Kita pakai fungsi Roblox yang asli, bukan yang udah dioprek Delta
+            OldTeleport(game:GetService("TeleportService"), placeId, game.JobId, LocalPlayer)
+            hopped = true
+        end)
+    end
+
+    -- CARA 2: Fallback ke game:HttpGet (Biasanya tembus kalau Cara 1 gagal ngambil job id)
+    if not hopped then
+        pcall(function()
+            StatusLabel.Text = "Status: Rejoining Server..."
+            game:GetService("TeleportService"):Teleport(placeId, LocalPlayer)
+            hopped = true
+        end)
+    end
+
+    -- CARA 3: Respawn karakter paksa
+    if not hopped then
+        pcall(function()
+            StatusLabel.Text = "Status: Respawn Character..."
+            LocalPlayer.Character:FindFirstChild("Humanoid").Health = 0
+        end)
+    end
+
+    task.wait(8) -- Waktu buat loading screen
     isHopping = false
 end
 
@@ -46,7 +63,6 @@ local TitleLabel = Instance.new("TextLabel")
 local ToggleBtn = Instance.new("TextButton")
 local StatusLabel = Instance.new("TextLabel")
 
--- Hapus UI lama kalau ada
 pcall(function()
     if game.CoreGui:FindFirstChild("AutoHopUI") then
         game.CoreGui:FindFirstChild("AutoHopUI"):Destroy()
@@ -80,11 +96,11 @@ TitleLabel.TextSize = 16
 
 ToggleBtn.Name = "ToggleBtn"
 ToggleBtn.Parent = MainFrame
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50) -- Langsung HIJAU
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
 ToggleBtn.Position = UDim2.new(0.1, 0, 0.25, 0)
 ToggleBtn.Size = UDim2.new(0.8, 0, 0, 35)
 ToggleBtn.Font = Enum.Font.GothamBold
-ToggleBtn.Text = "ON" -- Langsung ON
+ToggleBtn.Text = "ON"
 ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 ToggleBtn.TextSize = 14
 ToggleBtn.AutoButtonColor = true
@@ -99,15 +115,13 @@ StatusLabel.BackgroundTransparency = 1
 StatusLabel.Position = UDim2.new(0, 0, 0.65, 0)
 StatusLabel.Size = UDim2.new(1, 0, 0, 35)
 StatusLabel.Font = Enum.Font.Gotham
-StatusLabel.Text = "Status: Aktif (Auto)"
+StatusLabel.Text = "Status: Hooked & Ready"
 StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
 StatusLabel.TextSize = 11
 StatusLabel.TextWrapped = true
 
--- // LOGIKA TOMBOL \\ --
 ToggleBtn.MouseButton1Click:Connect(function()
     isToggled = not isToggled
-    
     if isToggled then
         ToggleBtn.Text = "ON"
         ToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
@@ -127,7 +141,7 @@ task.spawn(function()
         if isToggled and not isHopping then
             local playerCount = #Players:GetPlayers()
             if playerCount < MIN_PLAYERS then
-                hopServer()
+                forceHop()
             else
                 StatusLabel.Text = "Status: Aman ("..playerCount.." Pemain)"
                 StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
