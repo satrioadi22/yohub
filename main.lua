@@ -1,17 +1,15 @@
--- // AUTO HOP SERVER V3 (TANPA SAVE FILE - ANTI ERROR DELTA) \\ --
+-- // AUTO HOP SERVER V4 (TANPA HTTP - ANTI BLOCK GAME) \\ --
 
 local Players = game:GetService("Players")
 local TS = game:GetService("TeleportService")
-local HttpService = game:GetService("HttpService")
 
 local MIN_PLAYERS = 5
 
--- Langsung TRUE biar auto jalan tanpa pencet tombol
 local isToggled = true 
 local isHopping = false
 
 -- // FUNGSI TELEPORT BYPASS DELTA \\ --
-local function teleportTo(placeId, jobId)
+local function teleportTo(placeId)
     pcall(function()
         if getconnections then
             for _, conn in pairs(getconnections(TS.InternalTeleport)) do
@@ -20,57 +18,24 @@ local function teleportTo(placeId, jobId)
         end
     end)
     
-    if jobId then
-        TS:TeleportToPlaceInstance(placeId, jobId, Players.LocalPlayer)
-    else
-        TS:Teleport(placeId, Players.LocalPlayer)
-    end
+    -- Karena HTTP diblokir, kita pakai Teleport biasa (acak)
+    TS:Teleport(placeId, Players.LocalPlayer)
 end
 
--- // FUNGSI CARI SERVER (DENGAN FALLBACK) \\ --
-local function findNewServer()
+-- // FUNGSI HOP SERVER \\ --
+local function hopServer()
     if isHopping then return end
     isHopping = true
-    StatusLabel.Text = "Status: Mencari server..."
+    StatusLabel.Text = "Status: Hopping Server..."
     StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
 
     local placeId = game.PlaceId
-    local foundServer = false
     
-    -- CARA 1: Pake API Roblox
-    local apiSuccess = pcall(function()
-        local cursor = nil
-        while true do
-            local url = cursor and ("https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Desc&limit=100&cursor=" .. cursor) or ("https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Desc&limit=100")
-            
-            local response = HttpService:JSONDecode(game:HttpGet(url))
-            
-            for _, server in pairs(response.data) do
-                if type(server.playing) == "number" and server.playing >= MIN_PLAYERS and server.id ~= game.JobId then
-                    StatusLabel.Text = "Status: Hopping via API!"
-                    StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-                    teleportTo(placeId, server.id)
-                    foundServer = true
-                    return
-                end
-            end
-            
-            cursor = response.nextPageCursor
-            if not cursor then break end
-            task.wait(1)
-        end
-    end)
+    teleportTo(placeId)
     
-    -- CARA 2: Fallback kalau API error/blokir
-    if not foundServer then
-        warn("[HOP] API Gagal, menggunakan Fallback Teleport...")
-        StatusLabel.Text = "Status: Fallback Hop..."
-        StatusLabel.TextColor3 = Color3.fromRGB(255, 100, 0)
-        task.wait(1)
-        teleportTo(placeId, nil)
-    end
-    
-    task.wait(5)
+    -- Kasih waktu 8 detik buat loading screen teleport
+    -- Kalau 8 detik belum pindah, berarti teleport gagal, dia bakal nyoba lagi
+    task.wait(8) 
     isHopping = false
 end
 
@@ -139,7 +104,7 @@ StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
 StatusLabel.TextSize = 11
 StatusLabel.TextWrapped = true
 
--- // LOGIKA TOMBOL (Masih bisa diclick OFF kalau mau matiin) \\ --
+-- // LOGIKA TOMBOL \\ --
 ToggleBtn.MouseButton1Click:Connect(function()
     isToggled = not isToggled
     
@@ -162,7 +127,7 @@ task.spawn(function()
         if isToggled and not isHopping then
             local playerCount = #Players:GetPlayers()
             if playerCount < MIN_PLAYERS then
-                findNewServer()
+                hopServer()
             else
                 StatusLabel.Text = "Status: Aman ("..playerCount.." Pemain)"
                 StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
