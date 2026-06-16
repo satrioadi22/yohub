@@ -1,45 +1,46 @@
--- // Auto Hop Server UI with Config Save \\ --
+-- // AUTO HOP SERVER V2 (ANTI-ERROR & FALLBACK) \\ --
 
 local Players = game:GetService("Players")
 local TS = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
 
--- // PENGATURAN \\ --
 local MIN_PLAYERS = 5
 local CONFIG_NAME = "AutoHopConfig.txt"
 
--- // VARIABEL STATUS \\ --
 local isToggled = false
 local isHopping = false
 
--- // SISTEM SAVE CONFIG (BIAR INGAT KALAU DI EXECUTE LAGI) \\ --
+-- // SISTEM SAVE CONFIG \\ --
 local function saveConfig()
-    if writefile then
-        writefile(CONFIG_NAME, tostring(isToggled))
-    end
+    pcall(function() writefile(CONFIG_NAME, tostring(isToggled)) end)
 end
 
 local function loadConfig()
-    if readfile and isfile and isfile(CONFIG_NAME) then
-        local data = readfile(CONFIG_NAME)
-        if data == "true" then
-            return true
-        end
+    local success, data = pcall(function() return readfile(CONFIG_NAME) end)
+    if success and data == "true" then
+        return true
     end
     return false
 end
 
 -- // FUNGSI TELEPORT BYPASS DELTA \\ --
 local function teleportTo(placeId, jobId)
-    if getconnections then
-        for _, conn in pairs(getconnections(TS.InternalTeleport)) do
-            conn:Enable()
+    pcall(function()
+        if getconnections then
+            for _, conn in pairs(getconnections(TS.InternalTeleport)) do
+                conn:Enable()
+            end
         end
+    end)
+    
+    if jobId then
+        TS:TeleportToPlaceInstance(placeId, jobId, Players.LocalPlayer)
+    else
+        TS:Teleport(placeId, Players.LocalPlayer)
     end
-    TS:TeleportToPlaceInstance(placeId, jobId, Players.LocalPlayer)
 end
 
--- // FUNGSI CARI SERVER \\ --
+-- // FUNGSI CARI SERVER (FALLBACK) \\ --
 local function findNewServer()
     if isHopping then return end
     isHopping = true
@@ -47,22 +48,22 @@ local function findNewServer()
     StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
 
     local placeId = game.PlaceId
-    local cursor = nil
+    local foundServer = false
     
-    pcall(function()
+    -- CARA 1: Pake API (Paling aman kalau work)
+    local apiSuccess = pcall(function()
+        local cursor = nil
         while true do
-            local url = cursor and ("https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100&cursor=" .. cursor) or ("https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100")
+            local url = cursor and ("https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Desc&limit=100&cursor=" .. cursor) or ("https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Desc&limit=100")
             
             local response = HttpService:JSONDecode(game:HttpGet(url))
             
             for _, server in pairs(response.data) do
-                if server.playing >= MIN_PLAYERS and server.id ~= game.JobId then
-                    print("[HOP] Server ditemukan! Pemain: " .. server.playing)
-                    StatusLabel.Text = "Status: Hopping!"
-                    StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+                -- Cari server yang ramai dan BUKAN server saat ini
+                if type(server.playing) == "number" and server.playing >= MIN_PLAYERS and server.id ~= game.JobId then
+                    StatusLabel.Text = "Status: Hopping via API!"
                     teleportTo(placeId, server.id)
-                    task.wait(5)
-                    isHopping = false
+                    foundServer = true
                     return
                 end
             end
@@ -73,8 +74,16 @@ local function findNewServer()
         end
     end)
     
-    StatusLabel.Text = "Status: Server tidak ditemukan"
-    StatusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+    -- CARA 2: Fallback kalau API error (Langsung teleport acak)
+    if not foundServer then
+        warn("[HOP] API Gagal atau server penuh, menggunakan Fallback Teleport...")
+        StatusLabel.Text = "Status: Fallback Hop..."
+        StatusLabel.TextColor3 = Color3.fromRGB(255, 100, 0)
+        task.wait(1)
+        teleportTo(placeId, nil) -- Ini bakal masukin lu ke server mana aja yang kosong/ada slot
+    end
+    
+    task.wait(5)
     isHopping = false
 end
 
@@ -85,6 +94,12 @@ local TitleLabel = Instance.new("TextLabel")
 local ToggleBtn = Instance.new("TextButton")
 local StatusLabel = Instance.new("TextLabel")
 
+pcall(function()
+    if game.CoreGui:FindFirstChild("AutoHopUI") then
+        game.CoreGui:FindFirstChild("AutoHopUI"):Destroy()
+    end
+end)
+
 ScreenGui.Name = "AutoHopUI"
 ScreenGui.Parent = game.CoreGui
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -92,12 +107,11 @@ ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 MainFrame.Name = "MainFrame"
 MainFrame.Parent = ScreenGui
 MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-MainFrame.Position = UDim2.new(0.02, 0, 0.4, 0) -- Posisi di kiri layar
-MainFrame.Size = UDim2.new(0, 180, 0, 120)
+MainFrame.Position = UDim2.new(0.02, 0, 0.4, 0)
+MainFrame.Size = UDim2.new(0, 180, 0, 130) -- Dibikin agak panjan biar text status muat
 MainFrame.Active = true
-MainFrame.Draggable = true -- Bisa dipindahin posisinya
+MainFrame.Draggable = true
 
--- Bikin kampak (bulat dikit)
 local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0, 6)
 UICorner.Parent = MainFrame
@@ -113,8 +127,8 @@ TitleLabel.TextSize = 16
 
 ToggleBtn.Name = "ToggleBtn"
 ToggleBtn.Parent = MainFrame
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50) -- Merah = OFF
-ToggleBtn.Position = UDim2.new(0.1, 0, 0.3, 0)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+ToggleBtn.Position = UDim2.new(0.1, 0, 0.25, 0)
 ToggleBtn.Size = UDim2.new(0.8, 0, 0, 35)
 ToggleBtn.Font = Enum.Font.GothamBold
 ToggleBtn.Text = "OFF"
@@ -129,26 +143,27 @@ BtnCorner.Parent = ToggleBtn
 StatusLabel.Name = "Status"
 StatusLabel.Parent = MainFrame
 StatusLabel.BackgroundTransparency = 1
-StatusLabel.Position = UDim2.new(0, 0, 0.7, 0)
-StatusLabel.Size = UDim2.new(1, 0, 0, 25)
+StatusLabel.Position = UDim2.new(0, 0, 0.65, 0)
+StatusLabel.Size = UDim2.new(1, 0, 0, 35)
 StatusLabel.Font = Enum.Font.Gotham
 StatusLabel.Text = "Status: Standby"
 StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-StatusLabel.TextSize = 12
+StatusLabel.TextSize = 11
+StatusLabel.TextWrapped = true -- Biar text kebawah kalau kepanjangan
 
--- // LOGIKA TOMBOL ON/OFF \\ --
+-- // LOGIKA TOMBOL \\ --
 ToggleBtn.MouseButton1Click:Connect(function()
     isToggled = not isToggled
-    saveConfig() -- Simpan ke file biar ingat
+    saveConfig()
     
     if isToggled then
         ToggleBtn.Text = "ON"
-        ToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50) -- Hijau = ON
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
         StatusLabel.Text = "Status: Aktif"
         StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
     else
         ToggleBtn.Text = "OFF"
-        ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50) -- Merah = OFF
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
         StatusLabel.Text = "Status: Mati"
         StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
     end
@@ -169,7 +184,7 @@ task.spawn(function()
     end
 end)
 
--- // CEK CONFIG SEBELUMNYA (AUTO ON KALAU EXECUTE LAGI) \\ --
+-- AUTO ON KALAU CONFIG TRUE
 if loadConfig() then
     isToggled = true
     ToggleBtn.Text = "ON"
